@@ -15,8 +15,12 @@ import math
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
-windows = {'hamming': scipy.signal.hamming, 'hann': scipy.signal.hann, 'blackman': scipy.signal.blackman,
-           'bartlett': scipy.signal.bartlett}
+windows = {
+    'hamming': scipy.signal.hamming,
+    'hann': scipy.signal.hann,
+    'blackman': scipy.signal.blackman,
+    'bartlett': scipy.signal.bartlett
+}
 
 
 def load_audio(path):
@@ -47,10 +51,7 @@ class AudioParser(object):
 
 
 class NoiseInjection(object):
-    def __init__(self,
-                 path=None,
-                 sample_rate=16000,
-                 noise_levels=(0, 0.5)):
+    def __init__(self, path=None, sample_rate=16000, noise_levels=(0, 0.5)):
         """
         Adds noise to an input signal with specific SNR. Higher the noise level, the more noise added.
         Modified code from https://github.com/willfrey/audio/blob/master/torchaudio/transforms.py
@@ -72,7 +73,8 @@ class NoiseInjection(object):
         data_len = len(data) / self.sample_rate
         noise_start = np.random.rand() * (noise_len - data_len)
         noise_end = noise_start + data_len
-        noise_dst = audio_with_sox(noise_path, self.sample_rate, noise_start, noise_end)
+        noise_dst = audio_with_sox(noise_path, self.sample_rate, noise_start,
+                                   noise_end)
         assert len(data) == len(noise_dst)
         noise_energy = np.sqrt(noise_dst.dot(noise_dst) / noise_dst.size)
         data_energy = np.sqrt(data.dot(data) / data.size)
@@ -95,9 +97,10 @@ class SpectrogramParser(AudioParser):
         self.window = windows.get(audio_conf['window'], windows['hamming'])
         self.normalize = normalize
         self.augment = augment
-        self.noiseInjector = NoiseInjection(audio_conf['noise_dir'], self.sample_rate,
-                                            audio_conf['noise_levels']) if audio_conf.get(
-            'noise_dir') is not None else None
+        self.noiseInjector = NoiseInjection(
+            audio_conf['noise_dir'], self.sample_rate,
+            audio_conf['noise_levels']
+        ) if audio_conf.get('noise_dir') is not None else None
         self.noise_prob = audio_conf.get('noise_prob')
 
     def parse_audio(self, audio_path):
@@ -113,8 +116,12 @@ class SpectrogramParser(AudioParser):
         win_length = n_fft
         hop_length = int(self.sample_rate * self.window_stride)
         # STFT
-        D = librosa.stft(y, n_fft=n_fft, hop_length=hop_length,
-                         win_length=win_length, window=self.window)
+        D = librosa.stft(
+            y,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=self.window)
         spect, phase = librosa.magphase(D)
         # S = log(S+1)
         spect = np.log1p(spect)
@@ -132,7 +139,13 @@ class SpectrogramParser(AudioParser):
 
 
 class SpectrogramDataset(Dataset, SpectrogramParser):
-    def __init__(self, audio_conf, manifest_filepath, labels, normalize=False, augment=False):
+    def __init__(self,
+                 audio_conf,
+                 manifest_filepath,
+                 labels,
+                 normalize=False,
+                 augment=False,
+                 ttype=1):
         """
         Dataset that loads tensors via a csv containing file paths to audio files and transcripts separated by
         a comma. Each new line is a different sample. Example below:
@@ -152,7 +165,9 @@ class SpectrogramDataset(Dataset, SpectrogramParser):
         self.ids = ids
         self.size = len(ids)
         self.labels_map = dict([(labels[i], i) for i in range(len(labels))])
-        super(SpectrogramDataset, self).__init__(audio_conf, normalize, augment)
+        self.ttype = ttype
+        super(SpectrogramDataset, self).__init__(audio_conf, normalize,
+                                                 augment)
 
     def __getitem__(self, index):
         sample = self.ids[index]
@@ -163,8 +178,12 @@ class SpectrogramDataset(Dataset, SpectrogramParser):
 
     def parse_transcript(self, transcript_path):
         with open(transcript_path, 'r', encoding='utf8') as transcript_file:
-            transcript = transcript_file.read().replace('\n', '')
-        transcript = list(filter(None, [self.labels_map.get(x) for x in list(transcript)]))
+            for i in range(self.ttype):
+                transcript = transcript_file.readline().strip()
+            # print(transcript)
+            transcript = list(
+                filter(None,
+                       [self.labels_map.get(x) for x in list(transcript)]))
         return transcript
 
     def __len__(self):
@@ -214,7 +233,9 @@ class BucketingSampler(Sampler):
         super(BucketingSampler, self).__init__(data_source)
         self.data_source = data_source
         ids = list(range(0, len(data_source)))
-        self.bins = [ids[i:i + batch_size] for i in range(0, len(ids), batch_size)]
+        self.bins = [
+            ids[i:i + batch_size] for i in range(0, len(ids), batch_size)
+        ]
 
     def __iter__(self):
         for ids in self.bins:
@@ -229,7 +250,8 @@ class BucketingSampler(Sampler):
 
 
 class DistributedBucketingSampler(Sampler):
-    def __init__(self, data_source, batch_size=1, num_replicas=None, rank=None):
+    def __init__(self, data_source, batch_size=1, num_replicas=None,
+                 rank=None):
         """
         Samples batches assuming they are in order of size to batch similarly sized samples together.
         """
@@ -241,10 +263,14 @@ class DistributedBucketingSampler(Sampler):
         self.data_source = data_source
         self.ids = list(range(0, len(data_source)))
         self.batch_size = batch_size
-        self.bins = [self.ids[i:i + batch_size] for i in range(0, len(self.ids), batch_size)]
+        self.bins = [
+            self.ids[i:i + batch_size]
+            for i in range(0, len(self.ids), batch_size)
+        ]
         self.num_replicas = num_replicas
         self.rank = rank
-        self.num_samples = int(math.ceil(len(self.bins) * 1.0 / self.num_replicas))
+        self.num_samples = int(
+            math.ceil(len(self.bins) * 1.0 / self.num_replicas))
         self.total_size = self.num_samples * self.num_replicas
 
     def __iter__(self):
@@ -252,7 +278,8 @@ class DistributedBucketingSampler(Sampler):
         # add extra samples to make it evenly divisible
         bins = self.bins + self.bins[:(self.total_size - len(self.bins))]
         assert len(bins) == self.total_size
-        samples = bins[offset::self.num_replicas]  # Get every Nth bin, starting from rank
+        samples = bins[offset::self.
+                       num_replicas]  # Get every Nth bin, starting from rank
         return iter(samples)
 
     def __len__(self):
@@ -267,7 +294,8 @@ class DistributedBucketingSampler(Sampler):
 
 
 def get_audio_length(path):
-    output = subprocess.check_output(['soxi -D \"%s\"' % path.strip()], shell=True)
+    output = subprocess.check_output(['soxi -D \"%s\"' % path.strip()],
+                                     shell=True)
     return float(output)
 
 
@@ -277,9 +305,8 @@ def audio_with_sox(path, sample_rate, start_time, end_time):
     """
     with NamedTemporaryFile(suffix=".wav") as tar_file:
         tar_filename = tar_file.name
-        sox_params = "sox \"{}\" -r {} -c 1 -b 16 -e si {} trim {} ={} >/dev/null 2>&1".format(path, sample_rate,
-                                                                                               tar_filename, start_time,
-                                                                                               end_time)
+        sox_params = "sox \"{}\" -r {} -c 1 -b 16 -e si {} trim {} ={} >/dev/null 2>&1".format(
+            path, sample_rate, tar_filename, start_time, end_time)
         os.system(sox_params)
         y = load_audio(tar_filename)
         return y
@@ -291,16 +318,20 @@ def augment_audio_with_sox(path, sample_rate, tempo, gain):
     """
     with NamedTemporaryFile(suffix=".wav") as augmented_file:
         augmented_filename = augmented_file.name
-        sox_augment_params = ["tempo", "{:.3f}".format(tempo), "gain", "{:.3f}".format(gain)]
-        sox_params = "sox \"{}\" -r {} -c 1 -b 16 -e si {} {} >/dev/null 2>&1".format(path, sample_rate,
-                                                                                      augmented_filename,
-                                                                                      " ".join(sox_augment_params))
+        sox_augment_params = [
+            "tempo", "{:.3f}".format(tempo), "gain", "{:.3f}".format(gain)
+        ]
+        sox_params = "sox \"{}\" -r {} -c 1 -b 16 -e si {} {} >/dev/null 2>&1".format(
+            path, sample_rate, augmented_filename,
+            " ".join(sox_augment_params))
         os.system(sox_params)
         y = load_audio(augmented_filename)
         return y
 
 
-def load_randomly_augmented_audio(path, sample_rate=16000, tempo_range=(0.85, 1.15),
+def load_randomly_augmented_audio(path,
+                                  sample_rate=16000,
+                                  tempo_range=(0.85, 1.15),
                                   gain_range=(-6, 8)):
     """
     Picks tempo and gain uniformly, applies it to the utterance by using sox utility.
@@ -310,6 +341,6 @@ def load_randomly_augmented_audio(path, sample_rate=16000, tempo_range=(0.85, 1.
     tempo_value = np.random.uniform(low=low_tempo, high=high_tempo)
     low_gain, high_gain = gain_range
     gain_value = np.random.uniform(low=low_gain, high=high_gain)
-    audio = augment_audio_with_sox(path=path, sample_rate=sample_rate,
-                                   tempo=tempo_value, gain=gain_value)
+    audio = augment_audio_with_sox(
+        path=path, sample_rate=sample_rate, tempo=tempo_value, gain=gain_value)
     return audio

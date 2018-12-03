@@ -71,6 +71,8 @@ parser.add_argument('--rank', default=0, type=int,
                     help='The rank of this process')
 parser.add_argument('--gpu-rank', default=None,
                     help='If using distributed parallel for multi-gpu, sets the GPU for the process')
+parser.add_argument('--ttype', default=1,
+                    help='1: hanzi 2: pingyin')
 
 torch.manual_seed(123456)
 torch.cuda.manual_seed_all(123456)
@@ -200,9 +202,9 @@ if __name__ == '__main__':
     criterion = CTCLoss()
     decoder = GreedyDecoder(labels)
     train_dataset = SpectrogramDataset(audio_conf=audio_conf, manifest_filepath=args.train_manifest, labels=labels,
-                                       normalize=True, augment=args.augment)
+                                       normalize=True, augment=args.augment, ttype=args.ttype)
     test_dataset = SpectrogramDataset(audio_conf=audio_conf, manifest_filepath=args.val_manifest, labels=labels,
-                                      normalize=True, augment=False)
+                                      normalize=True, augment=False, ttype=args.ttype)
     if not args.distributed:
         train_sampler = BucketingSampler(train_dataset, batch_size=args.batch_size)
     else:

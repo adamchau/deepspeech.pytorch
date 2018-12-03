@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(description='DeepSpeech transcription')
 parser = add_inference_args(parser)
 parser.add_argument('--test-manifest', metavar='DIR',
                     help='path to validation manifest csv', default='data/test_manifest.csv')
-parser.add_argument('--batch-size', default=20, type=int, help='Batch size for training')
+parser.add_argument('--batch-size', default=10, type=int, help='Batch size for training')
 parser.add_argument('--num-workers', default=4, type=int, help='Number of workers used in dataloading')
 parser.add_argument('--verbose', action="store_true", help="print out decoded output and error of each sample")
 no_decoder_args = parser.add_argument_group("No Decoder Options", "Configuration options for when no decoder is "
@@ -75,22 +75,22 @@ if __name__ == '__main__':
         for x in range(len(target_strings)):
             transcript, reference = decoded_output[x][0], target_strings[x][0]
             wer_inst = decoder.wer(transcript, reference)
-            cer_inst = decoder.cer(transcript, reference)
+            # cer_inst = decoder.cer(transcript, reference)
             total_wer += wer_inst
-            total_cer += cer_inst
+            # total_cer += cer_inst
             num_tokens += len(reference.split())
             num_chars += len(reference)
             if args.verbose:
                 print("Ref:", reference.lower())
                 print("Hyp:", transcript.lower())
-                print("WER:", float(wer_inst) / len(reference.split()), "CER:", float(cer_inst) / len(reference), "\n")
-
+                print("Wer:", float(wer_inst)/len(reference.split()))
+                # print("WER:", float(wer_inst) / len(reference.split()), "CER:", float(cer_inst) / len(reference), "\n")
     if decoder is not None:
         wer = float(total_wer) / num_tokens
-        cer = float(total_cer) / num_chars
+        # cer = float(total_cer) / num_chars
 
         print('Test Summary \t'
-              'Average WER {wer:.3f}\t'
-              'Average CER {cer:.3f}\t'.format(wer=wer * 100, cer=cer * 100))
+              'Average WER {wer:.3f}%\t'.format(wer=wer * 100))
+              # 'Average CER {cer:.3f}\t'.format(wer=wer * 100, cer=cer * 100))
     else:
         np.save(args.output_path, output_data)

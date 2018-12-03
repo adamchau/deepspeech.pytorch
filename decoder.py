@@ -51,13 +51,18 @@ class Decoder(object):
         """
 
         # build mapping of words to integers
-        b = set(s1.split() + s2.split())
+        # b = set(s1.split() + s2.split())
+        b = set(list(s1) + list(s2))
+        print(b)
         word2char = dict(zip(b, range(len(b))))
 
         # map the words to a char array (Levenshtein packages only accepts
         # strings)
-        w1 = [chr(word2char[w]) for w in s1.split()]
-        w2 = [chr(word2char[w]) for w in s2.split()]
+        # w1 = [chr(word2char[w]) for w in s1.split()]
+        # w2 = [chr(word2char[w]) for w in s2.split()]
+
+        w1 = [chr(word2char[w]) for w in list(s1)]
+        w2 = [chr(word2char[w]) for w in list(s2)]
 
         return Lev.distance(''.join(w1), ''.join(w2))
 
